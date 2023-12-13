@@ -1,0 +1,90 @@
+import pandas
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow
+
+
+from keras.applications import ResNet50
+
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.layers import GlobalMaxPooling2D
+from tensorflow.keras.applications.resnet50 import ResNet50
+from keras.applications.resnet50 import preprocess_input
+from keras.preprocessing import image
+from numpy.linalg import norm
+
+
+model = ResNet50(weights='imagenet',include_top=False,input_shape=(224,224,3))
+
+model.trainable=False
+
+model= tensorflow.keras.Sequential([
+    model,
+    GlobalMaxPooling2D()
+])
+
+print(model.summary())
+
+def extract_features(img_path,model):
+    img = image.load_img(img_path, target_size=(224, 224))
+    img_array = image.img_to_array(img)
+    expanded_img_array = np.expand_dims(img_array, axis=0)
+    preprocessed_img = preprocess_input(expanded_img_array)
+    result = model.predict(preprocessed_img).flatten()
+    normalized_result = result / norm(result)
+
+    return normalized_result
+
+import os
+
+filename=[]
+for file in os.listdir('/content/drive/MyDrive/Dataset'):
+  filename.append(os.path.join('/content/drive/MyDrive/Dataset',file))
+
+feature_list = []
+for file in filename:
+  feature_list.append(extract_features(file,model))
+
+import pickle
+
+pickle.dump(feature_list,open('embeddings.pkl','wb'))
+pickle.dump(filename,open('filename.pkl','wb'))
+
+Fl = pickle.load(open('embeddings.pkl','rb'))
+fn = pickle.load(open('filename.pkl','rb'))
+
+# test on any image
+feature = extract_features("/content/drive/MyDrive/Dataset/100.jpg",model)
+
+feature.shape
+
+from sklearn.neighbors import NearestNeighbors
+
+
+recom_model = NearestNeighbors(n_neighbors=6,algorithm='brute',metric='euclidean')
+
+  recom_model.fit(Fl)
+
+from sklearn import neighbors
+
+
+k = 5  # Number of nearest neighbors
+distances, indices = recom_model.kneighbors([feature], n_neighbors=k)
+
+
+indices
+
+temp_images = []
+
+for file in indices[0]:
+    temp_img = cv2.imread(fn[file])
+    temp_images.append(cv2.cvtColor(temp_img, cv2.COLOR_BGR2RGB))
+plt.figure(figsize=(12, 6))
+for i in range(5):  # Assuming you want to display 5 images
+    plt.subplot(1, 5, i+1)
+    plt.imshow(temp_images[i])
+    plt.axis('off')  # Turn off axis labels
+
+plt.show()
+
+
